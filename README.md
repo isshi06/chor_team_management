@@ -1,3 +1,22 @@
+# 合唱団練習日管理システム
+
+Next.jsを使用した合唱団の練習スケジュール管理アプリケーションのサンプルプロジェクトです。
+
+## 機能
+
+- 月間カレンダー表示
+- 練習日・時間・場所・合唱団名の表示
+- 練習詳細のポップアップ表示
+- 複数合唱団の一括管理
+- 合唱団フィルタリング機能
+
+## 技術スタック
+
+- **フレームワーク**: Next.js 15
+- **言語**: TypeScript
+- **スタイリング**: Tailwind CSS
+- **状態管理**: React Hooks (useState, useEffect)
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
