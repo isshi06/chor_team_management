@@ -15,7 +15,11 @@ src/
 │   ├── Calendar.tsx           # カレンダー表示（メイン画面）
 │   ├── PracticeModal.tsx      # 詳細表示モーダル
 │   └── MultiPracticeModal.tsx # 複数練習一覧モーダル
-└── app/page.tsx              # ルートページ（状態管理）
+├── app/
+│   ├── page.tsx              # ルートページ（カレンダー・状態管理）
+│   └── audio-player/
+│       └── page.tsx          # 音楽プレーヤーページ
+└── README.md                 # プロジェクト概要
 ```
 
 ### データフロー
@@ -256,9 +260,96 @@ if (practices.length === 0) return <div>練習データがありません</div>;
 {performance?.title && <h3>{performance.title}</h3>}
 ```
 
-## 5. よくある実装パターン
+## 5. 音楽プレーヤー機能の実装パターン
 
-### 5-1. 新しいフィルター機能追加
+### 5-1. Web Audio API関連の実装
+
+音楽プレーヤー（`/audio-player`）では、HTML5 Audio APIを使用しています：
+
+```typescript
+// 基本的なAudio要素の制御
+const audioRef = useRef<HTMLAudioElement>(null);
+
+const togglePlayPause = () => {
+  const audio = audioRef.current;
+  if (!audio) return;
+
+  if (isPlaying) {
+    audio.pause();
+  } else {
+    audio.play().catch(error => {
+      console.error('再生に失敗:', error);
+    });
+  }
+};
+
+// 特定時間への移動
+const jumpToTime = (time: number) => {
+  const audio = audioRef.current;
+  if (!audio) return;
+  audio.currentTime = time;
+};
+```
+
+### 5-2. ローカルファイル処理
+
+File APIでローカルMP3ファイルを読み込み：
+
+```typescript
+const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const file = event.target.files?.[0];
+  
+  if (file && file.type.startsWith('audio/')) {
+    // メモリリーク防止
+    if (audioUrl) {
+      URL.revokeObjectURL(audioUrl);
+    }
+    
+    // Object URLを作成
+    const newUrl = URL.createObjectURL(file);
+    setAudioUrl(newUrl);
+  }
+};
+```
+
+### 5-3. ローカルストレージでのデータ永続化
+
+ブックマーク機能ではlocalStorageを使用：
+
+```typescript
+// 保存
+useEffect(() => {
+  localStorage.setItem('audioBookmarks', JSON.stringify(bookmarks));
+}, [bookmarks]);
+
+// 読み込み（エラーハンドリング含む）
+useEffect(() => {
+  const savedBookmarks = localStorage.getItem('audioBookmarks');
+  if (savedBookmarks) {
+    try {
+      setBookmarks(JSON.parse(savedBookmarks));
+    } catch (error) {
+      console.error('データ読み込みエラー:', error);
+      localStorage.removeItem('audioBookmarks');
+    }
+  }
+}, []);
+```
+
+### 5-4. 新しいページの追加パターン
+
+音楽プレーヤーページの追加手順：
+
+```
+1. app/audio-player/page.tsx 作成
+2. メインページからのナビゲーションリンク追加
+3. 必要に応じて共通コンポーネントの作成
+4. 新しい型定義の追加（今回はAudioBookmark）
+```
+
+## 6. よくある実装パターン
+
+### 6-1. 新しいフィルター機能追加
 
 ```typescript
 // 1. 状態追加
@@ -277,7 +368,7 @@ const filteredData = data.filter(item => {
 </select>
 ```
 
-### 5-2. 新しいモーダル追加
+### 6-2. 新しいモーダル追加
 
 ```typescript
 // 1. 状態管理
@@ -298,7 +389,58 @@ const handleOpenNewModal = (data) => {
 />
 ```
 
-## 6. トラブルシューティングチェックリスト
+## 7. 音楽プレーヤー関連のトラブルシューティング
+
+### 音声が再生されない場合
+
+#### チェック項目
+- [ ] ファイルが音声ファイル（MP3など）か確認
+- [ ] ブラウザのオーディオ制御が有効か確認
+- [ ] コンソールエラーがないか確認
+- [ ] Object URLが正しく生成されているか確認
+
+#### よくあるエラーと解決方法
+```typescript
+// エラー1: "play() failed" 
+// 原因: ブラウザの自動再生ポリシー
+// 解決: ユーザーアクション後に再生開始
+
+audio.play().catch(error => {
+  console.error('再生失敗:', error);
+  // ユーザーに操作を促すメッセージ表示
+});
+
+// エラー2: メモリリーク
+// 原因: Object URLが解放されていない
+// 解決: 適切なクリーンアップ
+
+useEffect(() => {
+  return () => {
+    if (audioUrl) {
+      URL.revokeObjectURL(audioUrl);
+    }
+  };
+}, [audioUrl]);
+```
+
+### ブックマーク関連の問題
+
+```typescript
+// 問題: ブックマークが保存されない
+// 確認点
+console.log('localStorage available:', typeof Storage !== 'undefined');
+console.log('saved bookmarks:', localStorage.getItem('audioBookmarks'));
+
+// 問題: 破損したデータでエラー
+// 解決: try-catchでエラーハンドリング
+try {
+  const bookmarks = JSON.parse(savedData);
+} catch (error) {
+  localStorage.removeItem('audioBookmarks');
+}
+```
+
+## 8. トラブルシューティングチェックリスト
 
 ### 機能が動かない時の確認項目
 

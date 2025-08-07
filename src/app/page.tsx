@@ -105,6 +105,16 @@ export default function Home() {
         <header className="text-center mb-8">
           <h1 className="text-4xl font-bold text-gray-800 mb-2">合唱団練習日管理</h1>
           <p className="text-gray-600">複数の合唱団の練習スケジュールを一括管理</p>
+          
+          {/* ナビゲーションリンク */}
+          <div className="mt-4">
+            <a 
+              href="/audio-player" 
+              className="inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              🎵 音楽プレーヤー
+            </a>
+          </div>
         </header>
 
         <Calendar
