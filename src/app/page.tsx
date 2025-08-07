@@ -16,9 +16,12 @@ export default function Home() {
   const [selectedSongs, setSelectedSongs] = useState<Song[]>([]);
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [selectedDatePractices, setSelectedDatePractices] = useState<Practice[]>([]);
+  // 表示する合唱団のID配列（初期状態では全て選択状態）
   const [selectedChoirTeamIds, setSelectedChoirTeamIds] = useState<string[]>(
     sampleChoirTeams.map(team => team.id)
   );
+  // 本番も合唱団フィルタの対象に含めるかのフラグ
+  // false: 本番は常に表示, true: 本番もフィルタ対象
   const [includePerformancesInFilter, setIncludePerformancesInFilter] = useState(false);
   const [selectedPerformance, setSelectedPerformance] = useState<Performance | null>(null);
 
@@ -74,18 +77,24 @@ export default function Home() {
     setModalOpen(true);
   };
 
+  // 合唱団チェックボックスのトグル処理
+  // 選択済みの場合は除外、未選択の場合は追加
   const handleChoirTeamToggle = (teamId: string) => {
     setSelectedChoirTeamIds(prev => 
       prev.includes(teamId) 
-        ? prev.filter(id => id !== teamId)
-        : [...prev, teamId]
+        ? prev.filter(id => id !== teamId)  // チェックを外す
+        : [...prev, teamId]                 // チェックを入れる
     );
   };
 
+  // 選択された合唱団の練習のみをフィルタリング
   const filteredPractices = samplePractices.filter(practice => 
     selectedChoirTeamIds.includes(practice.choirTeamId)
   );
 
+  // 本番のフィルタリングロジック
+  // includePerformancesInFilterがfalse: 全ての本番を表示（デフォルト）
+  // includePerformancesInFilterがtrue: 選択された合唱団の本番のみ表示
   const filteredPerformances = includePerformancesInFilter 
     ? samplePerformances.filter(performance => selectedChoirTeamIds.includes(performance.choirTeamId))
     : samplePerformances;

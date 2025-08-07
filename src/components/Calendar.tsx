@@ -40,32 +40,37 @@ const Calendar: React.FC<CalendarProps> = ({ practices, performances, choirTeams
     return days;
   };
 
+  // 指定した日付の練習一覧を取得する関数
   const getPracticesForDate = (day: number) => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
     const date = new Date(year, month, day);
-    const dateString = date.toISOString().split('T')[0];
+    const dateString = date.toISOString().split('T')[0]; // YYYY-MM-DD形式に変換
     
     return practices.filter(practice => practice.date === dateString);
   };
 
+  // 指定した日付の本番一覧を取得する関数
   const getPerformancesForDate = (day: number) => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
     const date = new Date(year, month, day);
-    const dateString = date.toISOString().split('T')[0];
+    const dateString = date.toISOString().split('T')[0]; // YYYY-MM-DD形式に変換
     
     return performances.filter(performance => performance.date === dateString);
   };
 
+  // 練習開始時間から時間帯を判定する関数
+  // 朝昼夜の時間帯別表示のために使用
   const getTimeSlot = (startTime: string) => {
     const hour = parseInt(startTime.split(':')[0]);
     if (hour >= 6 && hour < 13) return 'morning'; // 朝: 6:00-12:59
     if (hour >= 13 && hour < 17) return 'afternoon'; // 昼: 13:00-16:59  
     if (hour >= 17 && hour < 24) return 'evening'; // 夜: 17:00-23:59
-    return 'other'; // その他
+    return 'other'; // その他の時間帯
   };
 
+  // 時間帯コードを日本語ラベルに変換する関数
   const getTimeSlotLabel = (timeSlot: string) => {
     switch (timeSlot) {
       case 'morning': return '朝';
@@ -75,6 +80,8 @@ const Calendar: React.FC<CalendarProps> = ({ practices, performances, choirTeams
     }
   };
 
+  // 練習を時間帯別にグループ分けする関数
+  // 朝・昼・夜で重複がない場合の表示に使用
   const groupPracticesByTimeSlot = (practices: Practice[]) => {
     const grouped: { [key: string]: Practice[] } = {
       morning: [],
@@ -91,6 +98,8 @@ const Calendar: React.FC<CalendarProps> = ({ practices, performances, choirTeams
     return grouped;
   };
 
+  // 同じ時間帯に複数の練習があるかチェックする関数
+  // true: 「練習X件」表示, false: 時間帯別表示
   const hasTimeSlotOverlap = (practices: Practice[]) => {
     const grouped = groupPracticesByTimeSlot(practices);
     return Object.values(grouped).some(slot => slot.length > 1);
@@ -146,13 +155,16 @@ const Calendar: React.FC<CalendarProps> = ({ practices, performances, choirTeams
                 <div className="text-sm font-medium mb-1">{day}</div>
                 <div className="space-y-1">
                   {(() => {
+                    // その日の練習と本番を取得
                     const dayPractices = getPracticesForDate(day);
                     const dayPerformances = getPerformancesForDate(day);
                     const totalEvents = dayPractices.length + dayPerformances.length;
                     
+                    // イベントがない場合は何も表示しない
                     if (totalEvents === 0) return null;
                     
-                    // 練習のみ1件の場合
+                    // パターン1: 練習のみ1件の場合
+                    // 通常の練習表示（時間・会場・合唱団名）
                     if (dayPractices.length === 1 && dayPerformances.length === 0) {
                       const practice = dayPractices[0];
                       const choirTeam = choirTeams.find(team => team.id === practice.choirTeamId);
@@ -180,7 +192,8 @@ const Calendar: React.FC<CalendarProps> = ({ practices, performances, choirTeams
                       );
                     }
                     
-                    // 本番のみ1件の場合（練習があるかもしれない）
+                    // パターン2: 本番のみ1件の場合
+                    // 金色の果線で本番であることを強調
                     if (dayPerformances.length === 1 && dayPractices.length === 0) {
                       const performance = dayPerformances[0];
                       const choirTeam = choirTeams.find(team => team.id === performance.choirTeamId);
@@ -208,7 +221,8 @@ const Calendar: React.FC<CalendarProps> = ({ practices, performances, choirTeams
                       );
                     }
                     
-                    // 本番1件+練習がある場合
+                    // パターン3: 本番1件+練習がある場合
+                    // 本番情報と練習件数を別々に表示し、クリックできるようにする
                     if (dayPerformances.length === 1 && dayPractices.length > 0) {
                       const performance = dayPerformances[0];
                       const choirTeam = choirTeams.find(team => team.id === performance.choirTeamId);
@@ -251,7 +265,8 @@ const Calendar: React.FC<CalendarProps> = ({ practices, performances, choirTeams
                       );
                     }
                     
-                    // 練習のみ複数の場合
+                    // パターン4: 練習のみ複数の場合
+                    // 時間帯重複の有無で表示を切り替え
                     if (dayPractices.length > 1 && dayPerformances.length === 0) {
                       const year = currentDate.getFullYear();
                       const month = currentDate.getMonth();
@@ -259,6 +274,7 @@ const Calendar: React.FC<CalendarProps> = ({ practices, performances, choirTeams
                       const dateString = date.toISOString().split('T')[0];
                       
                       // 時間帯の重複があるかチェック
+                      // 例: 朝10:00と朝11:00の練習 = 重複あり
                       if (hasTimeSlotOverlap(dayPractices)) {
                         return (
                           <div
@@ -271,7 +287,7 @@ const Calendar: React.FC<CalendarProps> = ({ practices, performances, choirTeams
                           </div>
                         );
                       } else {
-                        // 時間帯別に表示
+                        // 時間帯別に表示（朝：合唱団A、昼：合唱団Bなど）
                         const grouped = groupPracticesByTimeSlot(dayPractices);
                         const timeSlots = ['morning', 'afternoon', 'evening', 'other'];
                         

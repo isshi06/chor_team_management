@@ -22,11 +22,14 @@ const PracticeModal: React.FC<PracticeModalProps> = ({
   venue,
   songs
 }) => {
+  // モーダルが非表示、または必須データがない場合は何も表示しない
   if (!isOpen || (!practice && !performance) || !choirTeam || !venue) {
     return null;
   }
 
+  // 練習または本番のデータを取得（本番が優先）
   const currentEvent = practice || performance;
+  // 本番データがあるかどうかの判定フラグ
   const isPerformance = !!performance;
 
   const formatDate = (dateString: string) => {
@@ -43,6 +46,7 @@ const PracticeModal: React.FC<PracticeModalProps> = ({
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
         <div className="flex justify-between items-center p-6 border-b">
+          {/* モーダルのタイトルを練習・本番で切り替え */}
           <h3 className="text-xl font-bold text-gray-800">
             {isPerformance ? '本番詳細' : '練習詳細'}
           </h3>
@@ -76,6 +80,7 @@ const PracticeModal: React.FC<PracticeModalProps> = ({
               </div>
             </div>
             
+            {/* 本番の場合のみタイトルを表示 */}
             {isPerformance && performance?.title && (
               <div>
                 <h4 className="font-semibold text-gray-700 mb-1">タイトル</h4>
@@ -84,6 +89,7 @@ const PracticeModal: React.FC<PracticeModalProps> = ({
             )}
             
             <div>
+              {/* 練習と本番で会場ラベルを切り替え */}
               <h4 className="font-semibold text-gray-700 mb-1">{isPerformance ? '会場' : '練習場所'}</h4>
               <p className="text-gray-600">{venue.name}</p>
               {venue.address && (
