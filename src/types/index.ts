@@ -30,6 +30,18 @@ export interface Practice {
   notes?: string;
 }
 
+export interface Performance {
+  id: string;
+  date: string; // YYYY-MM-DD形式
+  startTime: string; // HH:MM形式
+  endTime: string; // HH:MM形式
+  choirTeamId: string;
+  venueId: string;
+  songIds: string[];
+  title: string; // 本番のタイトル（コンサート名等）
+  notes?: string;
+}
+
 export interface CalendarEvent {
   id: string;
   date: string;

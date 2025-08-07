@@ -1,4 +1,4 @@
-import { ChoirTeam, Venue, Song, Practice } from '@/types';
+import { ChoirTeam, Venue, Song, Practice, Performance } from '@/types';
 
 export const sampleChoirTeams: ChoirTeam[] = [
   {
@@ -138,12 +138,12 @@ export const samplePractices: Practice[] = [
   {
     id: '6',
     date: '2025-08-20',
-    startTime: '19:00',
-    endTime: '21:00',
+    startTime: '10:00',
+    endTime: '12:00',
     choirTeamId: '1',
     venueId: '2',
     songIds: ['1', '6'],
-    notes: 'サンプル練習メモ6'
+    notes: 'サンプル練習メモ6（朝の練習）'
   },
   {
     id: '7',
@@ -164,5 +164,102 @@ export const samplePractices: Practice[] = [
     venueId: '3',
     songIds: ['3', '4'],
     notes: 'サンプル練習メモ8'
+  },
+  {
+    id: '9',
+    date: '2025-08-12',
+    startTime: '10:00',
+    endTime: '12:00',
+    choirTeamId: '1',
+    venueId: '1',
+    songIds: ['1', '2'],
+    notes: '朝の練習'
+  },
+  {
+    id: '10',
+    date: '2025-08-12',
+    startTime: '14:00',
+    endTime: '16:00',
+    choirTeamId: '2',
+    venueId: '2',
+    songIds: ['3', '4'],
+    notes: '昼の練習'
+  },
+  {
+    id: '11',
+    date: '2025-08-12',
+    startTime: '18:00',
+    endTime: '20:00',
+    choirTeamId: '3',
+    venueId: '3',
+    songIds: ['5', '6'],
+    notes: '夜の練習'
+  },
+  {
+    id: '12',
+    date: '2025-08-15',
+    startTime: '10:00',
+    endTime: '12:00',
+    choirTeamId: '1',
+    venueId: '1',
+    songIds: ['1'],
+    notes: '朝の練習（重複テスト）'
+  },
+  {
+    id: '13',
+    date: '2025-08-15',
+    startTime: '11:00',
+    endTime: '13:00',
+    choirTeamId: '2',
+    venueId: '2',
+    songIds: ['3'],
+    notes: '朝の練習（重複テスト）'
+  }
+];
+
+export const samplePerformances: Performance[] = [
+  {
+    id: '1',
+    date: '2025-08-08',
+    startTime: '15:00',
+    endTime: '17:00',
+    choirTeamId: '1',
+    venueId: '3',
+    songIds: ['1', '2'],
+    title: 'サンプル演奏会',
+    notes: '練習と同日開催の本番'
+  },
+  {
+    id: '2',
+    date: '2025-08-16',
+    startTime: '14:00',
+    endTime: '16:00',
+    choirTeamId: '1',
+    venueId: '1',
+    songIds: ['1', '2', '4'],
+    title: 'サンプルコンサートA',
+    notes: '第1回サンプルコンサート'
+  },
+  {
+    id: '3',
+    date: '2025-08-23',
+    startTime: '18:00',
+    endTime: '20:30',
+    choirTeamId: '2',
+    venueId: '2',
+    songIds: ['3', '4', '6'],
+    title: 'サンプル発表会B',
+    notes: '年次発表会'
+  },
+  {
+    id: '4',
+    date: '2025-08-30',
+    startTime: '15:00',
+    endTime: '17:00',
+    choirTeamId: '3',
+    venueId: '4',
+    songIds: ['5', '6'],
+    title: 'サンプル演奏会C',
+    notes: '合同演奏会'
   }
 ];
