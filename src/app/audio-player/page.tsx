@@ -3,11 +3,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 
 // 音声ブックマークの型定義
-// ユーザーが特定の再生位置を名前付きで保存するためのデータ構造
+// ユーザーが特定の再生範囲を名前付きで保存するためのデータ構造
 interface AudioBookmark {
   id: string;        // 一意識別子（削除・管理用）
   name: string;      // ユーザーが設定するブックマーク名
-  time: number;      // 再生位置（秒数）
+  startTime: number; // 開始位置（秒数）
+  endTime: number;   // 終了位置（秒数）
   fileName: string;  // 対象音声ファイル名（ファイル切り替え時の制御用）
 }
 
@@ -27,6 +28,11 @@ const AudioPlayerPage: React.FC = () => {
   const [bookmarks, setBookmarks] = useState<AudioBookmark[]>([]); // 保存済みブックマーク一覧
   const [bookmarkName, setBookmarkName] = useState('');            // 新規ブックマーク名の入力値
   const [showBookmarkInput, setShowBookmarkInput] = useState(false); // ブックマーク入力フォームの表示状態
+  const [bookmarkEndTime, setBookmarkEndTime] = useState(0);       // 新規ブックマークの終了時間
+  
+  // ループ再生機能の状態管理
+  const [activeBookmark, setActiveBookmark] = useState<AudioBookmark | null>(null); // 現在ループ再生中のブックマーク
+  const [isLooping, setIsLooping] = useState(false);               // ループ再生中かどうかのフラグ
 
   // コンポーネント初期化時の処理
   // ローカルストレージから保存済みブックマークを復元
@@ -52,19 +58,37 @@ const AudioPlayerPage: React.FC = () => {
   }, [bookmarks]);
 
   // 音声要素のイベントリスナー設定
-  // 再生時間の更新、メタデータ読み込み、再生終了の検知を行う
+  // 再生時間の更新、メタデータ読み込み、再生終了の検知、ループ制御を行う
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
 
     // 再生中の時間更新（通常は250ms間隔で発火）
-    const updateTime = () => setCurrentTime(audio.currentTime);
+    const updateTime = () => {
+      const time = audio.currentTime;
+      setCurrentTime(time);
+      
+      // ループ再生中の終了時間チェック
+      if (activeBookmark && isLooping && time >= activeBookmark.endTime) {
+        audio.currentTime = activeBookmark.startTime;
+      }
+    };
     
     // 音声ファイルのメタデータ読み込み完了時に総時間を取得
     const updateDuration = () => setDuration(audio.duration);
     
     // 再生が終了した時の処理
-    const handleEnd = () => setIsPlaying(false);
+    const handleEnd = () => {
+      if (activeBookmark && isLooping) {
+        // ループ再生中の場合は開始位置に戻って再生継続
+        audio.currentTime = activeBookmark.startTime;
+        audio.play().catch(error => console.error('ループ再生失敗:', error));
+      } else {
+        setIsPlaying(false);
+        setActiveBookmark(null);
+        setIsLooping(false);
+      }
+    };
 
     // イベントリスナーを登録
     audio.addEventListener('timeupdate', updateTime);
@@ -77,7 +101,7 @@ const AudioPlayerPage: React.FC = () => {
       audio.removeEventListener('loadedmetadata', updateDuration);
       audio.removeEventListener('ended', handleEnd);
     };
-  }, [audioUrl]); // audioUrlが変更された時に再実行
+  }, [audioUrl, activeBookmark, isLooping]); // audioUrl、ループ関連の状態が変更された時に再実行
 
   // ローカルファイル選択時の処理
   // File APIを使用してユーザーが選択したMP3ファイルを読み込み
@@ -151,17 +175,19 @@ const AudioPlayerPage: React.FC = () => {
   };
 
   // ブックマーク追加処理
-  // 現在の再生位置を名前付きで保存する
+  // 現在の再生位置から終了時間までの範囲を名前付きで保存する
   const addBookmark = () => {
     // バリデーション: 必要な条件が揃っているかチェック
-    if (!currentFile || !bookmarkName.trim() || currentTime === 0) {
+    if (!currentFile || !bookmarkName.trim() || currentTime === 0 || bookmarkEndTime <= currentTime) {
+      alert('ブックマーク名を入力し、終了時間が開始時間より後になるよう設定してください。');
       return;
     }
 
     const newBookmark: AudioBookmark = {
       id: Date.now().toString(),      // 現在時刻をIDとして使用（簡易的な一意性保証）
       name: bookmarkName.trim(),      // 前後の空白を除去
-      time: currentTime,              // 現在の再生位置
+      startTime: currentTime,         // 開始位置（現在の再生位置）
+      endTime: bookmarkEndTime,       // 終了位置（ユーザーが設定した時間）
       fileName: currentFile.name      // ファイル名（ファイル切り替え時の制御用）
     };
 
@@ -170,6 +196,7 @@ const AudioPlayerPage: React.FC = () => {
     
     // 入力フォームをリセット
     setBookmarkName('');
+    setBookmarkEndTime(0);
     setShowBookmarkInput(false);
   };
 
@@ -179,15 +206,31 @@ const AudioPlayerPage: React.FC = () => {
     setBookmarks(prev => prev.filter(bookmark => bookmark.id !== id));
   };
 
-  // ブックマーク位置へのジャンプ処理
-  // 保存された時間位置に即座に移動する
-  const jumpToBookmark = (time: number) => {
+  // ブックマーク範囲でのループ再生開始処理
+  // 保存された開始時間に移動し、終了時間でループする再生を開始
+  const startBookmarkLoop = (bookmark: AudioBookmark) => {
     const audio = audioRef.current;
     if (!audio) return;
 
-    // 指定された時間位置に移動
-    audio.currentTime = time;
-    setCurrentTime(time);
+    // ブックマークの開始位置に移動
+    audio.currentTime = bookmark.startTime;
+    setCurrentTime(bookmark.startTime);
+    
+    // ループ再生状態を設定
+    setActiveBookmark(bookmark);
+    setIsLooping(true);
+    
+    // 再生開始
+    if (!isPlaying) {
+      audio.play().catch(error => console.error('ループ再生開始失敗:', error));
+      setIsPlaying(true);
+    }
+  };
+
+  // ループ再生停止処理
+  const stopLoop = () => {
+    setActiveBookmark(null);
+    setIsLooping(false);
   };
 
   return (
@@ -262,42 +305,103 @@ const AudioPlayerPage: React.FC = () => {
               </button>
               
               <button
-                onClick={() => setShowBookmarkInput(!showBookmarkInput)}
+                onClick={() => {
+                  setShowBookmarkInput(!showBookmarkInput);
+                  // フォーム表示時に現在時間より10秒後を初期値として設定
+                  if (!showBookmarkInput) {
+                    setBookmarkEndTime(Math.min(currentTime + 10, duration));
+                  }
+                }}
                 disabled={!audioUrl || currentTime === 0}
                 className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
               >
-                📝 ブックマーク追加
+                📝 範囲ブックマーク追加
               </button>
+              
+              {/* ループ停止ボタン */}
+              {isLooping && (
+                <button
+                  onClick={stopLoop}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                >
+                  🔄 ループ停止
+                </button>
+              )}
             </div>
 
             {/* ブックマーク追加入力フォーム */}
             {showBookmarkInput && (
               <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-                <div className="flex space-x-2">
-                  <input
-                    type="text"
-                    value={bookmarkName}
-                    onChange={(e) => setBookmarkName(e.target.value)}
-                    placeholder="ブックマーク名を入力"
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 placeholder-gray-500 bg-white"
-                  />
-                  <button
-                    onClick={addBookmark}
-                    disabled={!bookmarkName.trim()}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400"
-                  >
-                    保存
-                  </button>
-                  <button
-                    onClick={() => setShowBookmarkInput(false)}
-                    className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700"
-                  >
-                    キャンセル
-                  </button>
+                <div className="space-y-3">
+                  {/* ブックマーク名入力 */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      ブックマーク名
+                    </label>
+                    <input
+                      type="text"
+                      value={bookmarkName}
+                      onChange={(e) => setBookmarkName(e.target.value)}
+                      placeholder="ブックマーク名を入力"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 placeholder-gray-500 bg-white"
+                    />
+                  </div>
+                  
+                  {/* 時間範囲設定 */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        開始時間
+                      </label>
+                      <div className="text-sm text-gray-600 bg-gray-100 px-3 py-2 rounded-md">
+                        {formatTime(currentTime)} (現在位置)
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        終了時間
+                      </label>
+                      <input
+                        type="range"
+                        min={currentTime}
+                        max={duration}
+                        step="0.1"
+                        value={bookmarkEndTime}
+                        onChange={(e) => setBookmarkEndTime(parseFloat(e.target.value))}
+                        className="w-full"
+                      />
+                      <div className="text-sm text-gray-600 text-center mt-1">
+                        {formatTime(bookmarkEndTime)}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* 再生時間表示 */}
+                  <div className="text-sm text-gray-600">
+                    ループ再生時間: {formatTime(bookmarkEndTime - currentTime)}
+                  </div>
+                  
+                  {/* ボタン */}
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={addBookmark}
+                      disabled={!bookmarkName.trim() || bookmarkEndTime <= currentTime}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400"
+                    >
+                      保存
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowBookmarkInput(false);
+                        setBookmarkName('');
+                        setBookmarkEndTime(0);
+                      }}
+                      className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700"
+                    >
+                      キャンセル
+                    </button>
+                  </div>
                 </div>
-                <p className="text-sm text-gray-600 mt-2">
-                  現在位置: {formatTime(currentTime)}
-                </p>
               </div>
             )}
           </div>
@@ -306,33 +410,52 @@ const AudioPlayerPage: React.FC = () => {
         {/* ブックマーク一覧セクション */}
         {bookmarks.length > 0 && (
           <div className="bg-white rounded-lg shadow-lg p-6">
-            <h2 className="text-xl font-semibold text-gray-800 mb-4">保存済みブックマーク</h2>
-            <div className="space-y-2">
+            <h2 className="text-xl font-semibold text-gray-800 mb-4">保存済み範囲ブックマーク</h2>
+            <div className="space-y-3">
               {bookmarks.map(bookmark => (
                 <div 
                   key={bookmark.id}
-                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                  className={`p-4 rounded-lg border-2 transition-all ${
+                    activeBookmark?.id === bookmark.id 
+                      ? 'bg-blue-50 border-blue-300' 
+                      : 'bg-gray-50 border-gray-200'
+                  }`}
                 >
-                  <div className="flex-1">
-                    <h3 className="font-medium text-gray-800">{bookmark.name}</h3>
-                    <p className="text-sm text-gray-600">
-                      {bookmark.fileName} - {formatTime(bookmark.time)}
-                    </p>
-                  </div>
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => jumpToBookmark(bookmark.time)}
-                      disabled={!audioUrl || currentFile?.name !== bookmark.fileName}
-                      className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:bg-gray-400"
-                    >
-                      ⏯️ 再生
-                    </button>
-                    <button
-                      onClick={() => deleteBookmark(bookmark.id)}
-                      className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700"
-                    >
-                      🗑️ 削除
-                    </button>
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <h3 className="font-medium text-gray-800 mb-1">
+                        {bookmark.name}
+                        {activeBookmark?.id === bookmark.id && (
+                          <span className="ml-2 text-xs bg-blue-600 text-white px-2 py-1 rounded">
+                            🔄 ループ中
+                          </span>
+                        )}
+                      </h3>
+                      <div className="text-sm text-gray-600 space-y-1">
+                        <p>ファイル: {bookmark.fileName}</p>
+                        <p>
+                          範囲: {formatTime(bookmark.startTime)} ～ {formatTime(bookmark.endTime)}
+                          <span className="ml-2 text-gray-500">
+                            (時間: {formatTime(bookmark.endTime - bookmark.startTime)})
+                          </span>
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={() => startBookmarkLoop(bookmark)}
+                        disabled={!audioUrl || currentFile?.name !== bookmark.fileName}
+                        className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:bg-gray-400"
+                      >
+                        🔄 ループ再生
+                      </button>
+                      <button
+                        onClick={() => deleteBookmark(bookmark.id)}
+                        className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700"
+                      >
+                        🗑️ 削除
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -346,8 +469,9 @@ const AudioPlayerPage: React.FC = () => {
           <ul className="text-blue-700 space-y-1">
             <li>1. 「ファイル選択」でMP3ファイルを選択してください</li>
             <li>2. プログレスバーをクリックして好きな位置に移動できます</li>
-            <li>3. 「ブックマーク追加」で現在位置を名前付きで保存できます</li>
-            <li>4. 保存したブックマークは次回も利用できます</li>
+            <li>3. 「範囲ブックマーク追加」で開始～終了時間を設定して保存できます</li>
+            <li>4. 「ループ再生」で指定範囲を繰り返し再生できます</li>
+            <li>5. ブックマークは次回起動時も利用できます</li>
           </ul>
         </div>
       </div>
